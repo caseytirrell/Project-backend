@@ -92,10 +92,83 @@ app.get('/actors-top-5/:actorId', (req, res) => {
 		ORDER BY rental_count DESC
 		LIMIT 5
 		`;
-		
+
 	database.query(query, [actorId], (err, results) => {
 
 		if(err) {
+			console.error("Fetching Error: ", err);
+			res.status(500).send("Query Error...");
+			return;
+		}
+		res.json(results);
+	});
+});
+
+app.get('/search-movies', (req, res) => {
+
+	const filmName = req.query.filmName || '';
+	const actorName = req.query.actorName || '';
+	const genre = req.query.genre || '';
+
+	let query = `
+	SELECT DISTINCT film.* 
+	FROM film
+	`;
+	
+	const params = [];
+	const clauses = [];
+
+	if(filmName){
+
+		clauses.push(`film.title LIKE ?`);
+		params.push(`%${filmName}%`);
+	}
+
+	if(actorName) {
+
+		const name = actorName.split(' '); 
+		query += `
+		LEFT JOIN film_actor ON film.film_id = film_actor.film_id
+		LEFT JOIN actor ON film_actor.actor_id = actor.actor_id
+		`;
+
+		if(name.length === 1) {
+		
+			clauses.push(`(LOWER(actor.first_name) LIKE LOWER(?) OR LOWER(actor.last_name) LIKE LOWER(?))`);
+			params.push(`%${name[0]}%`, `%${name[0]}%`);
+		}
+		else if (name.length >= 2) {
+
+			clauses.push(`(LOWER(actor.first_name) LIKE LOWER(?) OR LOWER(actor.last_name) LIKE LOWER(?))`);
+			params.push(`%${name[0]}%`, `%${name[1]}%`);
+		}
+	}
+
+	if(genre) {
+
+		query += `
+		LEFT JOIN film_category ON film.film_id = film_category.film_id
+		LEFT JOIN category ON film_category.category_id = category.category_id
+		`;
+
+		clauses.push(`category.name LIKE ?`);
+		params.push(`%${genre}%`);
+	}
+
+	if(clauses.length > 0) {
+
+		query += ` WHERE ` + clauses.join(" AND ");
+	}
+
+	console.log("Constructed SQL query ", query);
+	console.log("Parameters: ", params);
+
+	console.log('Received Parameters:', filmName, actorName, genre);
+
+	database.query(query, params, (err, results) => {
+
+		if(err) {
+
 			console.error("Fetching Error: ", err);
 			res.status(500).send("Query Error...");
 			return;
