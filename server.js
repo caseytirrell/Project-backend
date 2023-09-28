@@ -19,16 +19,13 @@ database.connect((err) => {
 	
 		throw err;
 	}
-	console.log('Connected to the database');
+	//console.log('Connected to the database');
 });
 
 app.get('/health-check', (req, res) => {
 	res.send('Hello!');
 });
 
-app.listen(PORT, () => {
-	console.log(`Server is running on ${PORT}`);
-});
 
 app.get('/top-5-rented-movies', (req, res) => {
 
@@ -284,3 +281,9 @@ app.get('/customer-rentals/:customerId', (req, res) => {
 		});
 	});	
 });
+
+const server = app.listen(PORT, () => {
+	console.log(`Server is running on ${PORT}`);
+});
+
+module.exports = { app, server, database };
