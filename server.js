@@ -33,7 +33,7 @@ app.listen(PORT, () => {
 app.get('/top-5-rented-movies', (req, res) => {
 
 	const query = `
-		SELECT film.title, film.description, category.name as genre, COUNT(rental.rental_id) as rental_count 
+		SELECT film.title, film.description, category.name AS genre, COUNT(rental.rental_id) AS rental_count 
     	FROM rental 
     	JOIN inventory ON rental.inventory_id = inventory.inventory_id
     	JOIN film ON inventory.film_id = film.film_id
@@ -59,7 +59,7 @@ app.get('/top-5-rented-movies', (req, res) => {
 app.get('/top-5-rented-actors', (req, res) => {
 
 	const query = `
-		SELECT actor.actor_id, actor.first_name, actor.last_name, COUNT(film_actor.actor_id) as movie_count
+		SELECT actor.actor_id, actor.first_name, actor.last_name, COUNT(film_actor.actor_id) AS movie_count
 		FROM actor
 		JOIN film_actor ON actor.actor_id = film_actor.actor_id
 		GROUP BY actor.actor_id
@@ -160,11 +160,6 @@ app.get('/search-movies', (req, res) => {
 		query += ` WHERE ` + clauses.join(" AND ");
 	}
 
-	console.log("Constructed SQL query ", query);
-	console.log("Parameters: ", params);
-
-	console.log('Received Parameters:', filmName, actorName, genre);
-
 	database.query(query, params, (err, results) => {
 
 		if(err) {
@@ -175,4 +170,117 @@ app.get('/search-movies', (req, res) => {
 		}
 		res.json(results);
 	});
+});
+
+app.get('/all-customers', (req, res) => {
+
+	const query = `
+	SELECT *
+	FROM customer
+	`;
+
+	database.query(query, (err, results) => {
+
+		if(err) {
+
+			console.error("Fetching Error: ", err);
+			res.status(500).send("Query Error...");
+			return;
+		}
+		res.json(results);
+	});
+});
+
+app.get('/search-customers', (req, res) => {
+	const customerID = req.query.customerID || '';
+	const customerName = req.query.customerName || '';
+
+	let query = `
+	SELECT DISTINCT customer.*
+	FROM customer
+	`;
+
+	const params = [];
+	const clauses = [];
+
+	if(customerID) {
+
+		clauses.push(`customer_id = ?`);
+		params.push(customerID);
+	}
+	
+	if(customerName) {
+
+		const name = customerName.split(' ');
+		if(name.length === 1) {
+		
+			clauses.push(`(LOWER(customer.first_name) LIKE LOWER(?) OR LOWER(customer.last_name) LIKE LOWER(?))`);
+			params.push(`%${name[0]}%`, `%${name[0]}%`);
+		}
+		else if (name.length >= 2) {
+
+			clauses.push(`(LOWER(customer.first_name) LIKE LOWER(?) AND LOWER(customer.last_name) LIKE LOWER(?))`);
+			params.push(`%${name[0]}%`, `%${name[1]}%`);
+		}
+	}
+	
+	if(clauses.length > 0) {
+		query += ` WHERE ` + clauses.join(" AND ");
+	}
+
+	database.query(query, params, (err, results) => {
+		if(err) {
+			console.error("Fetching Error: ", err);
+			res.status(500).send("Query Error...");
+			return;
+		}
+		res.json(results);
+	});
+});
+
+app.get('/customer-rentals/:customerId', (req, res) => {
+
+	const customerId = req.params.customerId;
+
+	const query = `
+	SELECT film.title, COUNT(rental.rental_id) as customer_rental_count
+	FROM rental
+	INNER JOIN inventory ON rental.inventory_id = inventory.inventory_id
+	INNER JOIN film ON inventory.film_id = film.film_id
+	WHERE rental.customer_id = ?
+	GROUP BY film.title
+	ORDER BY customer_rental_count DESC
+	`; 
+
+	const totalQuery = `
+	SELECT COUNT(DISTINCT rental.rental_id) as total_rentals
+	FROM rental
+	WHERE rental.customer_id = ?
+	`;
+
+	database.query(totalQuery, [customerId], (err, countResults) => {
+
+		if(err) {
+			console.error("Fetching Error: ", err);
+			res.status(500).send("Query Error...");
+			return;
+		}
+	
+
+		database.query(query, [customerId], (err, results) => {
+
+			if(err) {
+				console.error("Fetching Error: ", err);
+				res.status(500).send("Query Error...");
+				return;
+			}
+			res.json({
+
+				totalCount: countResults[0].total_rentals,
+				movies: results.map(movie => ({
+					title: movie.title
+				}))
+			});
+		});
+	});	
 });
