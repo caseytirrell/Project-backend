@@ -1,8 +1,11 @@
 const exp = require('express');
-const app = exp();
 const cors = require('cors');
+const app = exp();
 const PORT = 3001;
 const mySQL = require('mysql');
+
+app.use(cors());
+app.use(exp.json());
 
 const database = mySQL.createConnection({
 
@@ -11,7 +14,6 @@ const database = mySQL.createConnection({
 	password: 'CaseyTirrell5',
 	database: 'sakila'
 })
-app.use(cors());
 
 database.connect((err) => {
 
@@ -169,6 +171,60 @@ app.get('/search-movies', (req, res) => {
 	});
 });
 
+app.post('/movie-rentals', (req, res) => {
+
+	console.log('Received request:', req.body);
+	console.log('Recieved FilmID', req.body.filmId);
+
+	const { customerId, filmId, staffId } = req.body;
+
+	if(!customerId || !filmId || !staffId) {
+
+		return res.status(400).send("Missing content from the Customer ID or the Film ID..");
+	}
+
+	if(isNaN(customerId) || isNaN(filmId) || isNaN(staffId)) {
+
+		return res.status(400).send("Missing content from the Customer ID or the Film ID..");
+	}
+
+	const inventoryQuery = `
+	SELECT inventory_id
+	FROM inventory
+	WHERE film_id = ?
+	LIMIT 1
+	`;
+
+	const query = `
+	INSERT INTO rental (rental_date, inventory_id, customer_id, return_date, staff_id)
+	VALUES (NOW(), ?, ?, NOW(), ?);
+	`;
+
+	database.query(inventoryQuery, [filmId], (err, results) => {
+
+		if(err) {
+
+			console.error(err);
+			res.status(500).send("Query Error...");
+			return;
+		}
+		const inventoryId = results[0].inventory_id;
+
+		database.query(query, [inventoryId, customerId, staffId], (err, results) => {
+
+			if(err) {
+
+				console.error("Fetching Error: ", err);
+				res.status(500).send("Query Error...");
+				return;
+			}
+			console.log('Query Results', results);
+			res.status(200).send("Successfully rented...");
+		});
+	})
+
+});
+
 app.get('/all-customers', (req, res) => {
 
 	const query = `
@@ -282,8 +338,8 @@ app.get('/customer-rentals/:customerId', (req, res) => {
 	});	
 });
 
-const server = app.listen(PORT, () => {
+app.listen(PORT, () => {
 	console.log(`Server is running on ${PORT}`);
 });
 
-module.exports = { app, server, database };
+//module.exports = { app, server, database };
