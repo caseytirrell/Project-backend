@@ -22,7 +22,61 @@ database.connect((err) => {
 		throw err;
 	}
 	//console.log('Connected to the database');
+
+	const indexQuery = `
+	SHOW INDEXES FROM address
+	WHERE Column_name=\'location\'
+	`;
+
+	database.query(indexQuery, (err, results) => {
+
+		if(err) {
+
+			console.error('Fetching Index Error: ', err);
+			return;
+		}
+		if(results && results.length > 0) {
+
+			const indexName = results[0].Key_name;
+			
+			const dropQuery = `
+			ALTER TABLE address
+			DROP INDEX ${indexName}
+			`;
+
+			database.query(dropQuery, (err, results) => {
+				if(err) {
+
+					console.error("Dropping Index Error: ", err);
+					return;
+				}
+				alterLocationColumn();
+			});
+		}
+		else {
+
+			alterLocationColumn();
+		}
+	});
 });
+
+const alterLocationColumn = () => {
+
+	const alterTableQuery = `
+	ALTER TABLE address
+	MODIFY COLUMN location BLOB NULL
+	`;
+
+	database.query(alterTableQuery, (err, results) => {
+
+		if(err) {
+
+			console.error("Altered Table Error: ", err);
+			return;
+		}
+		console.log('Table altercation worked...');
+	});
+};
 
 app.get('/health-check', (req, res) => {
 	res.send('Hello!');
@@ -172,9 +226,6 @@ app.get('/search-movies', (req, res) => {
 });
 
 app.post('/movie-rentals', (req, res) => {
-
-	console.log('Received request:', req.body);
-	console.log('Recieved FilmID', req.body.filmId);
 
 	const { customerId, filmId, staffId } = req.body;
 
@@ -336,6 +387,89 @@ app.get('/customer-rentals/:customerId', (req, res) => {
 			});
 		});
 	});	
+});
+
+app.post('/new-customer', (req, res) => {
+
+	console.log(req.body);
+	const { storeId, firstName, lastName, email, phone, address, city, district, country } = req.body;
+
+	if(!storeId || !firstName || !lastName || !email || !phone || !address || !city || !district || !country) {
+
+		return res.status(400).send("Missing content that needs to be entered..");
+	}
+
+	const countryQuery = `
+	INSERT INTO country (country)
+	VALUES (?)
+	ON DUPLICATE KEY UPDATE country_id=LAST_INSERT_ID(country_id), country=?
+	`;
+
+	const cityQuery = `
+	INSERT INTO city (city, country_id)
+	VALUES (?, ?)
+	ON DUPLICATE KEY UPDATE city_id=LAST_INSERT_ID(city_id), city=?, country_id=?
+	`;
+
+	const addressQuery = `
+	INSERT INTO address (address, district, city_id, phone)
+	VALUES (?, ?, ?, ?)
+	`;
+
+	const query = `
+	INSERT INTO customer (store_id, first_name, last_name, email, address_id)
+	VALUES (?, ?, ?, ?, ?)
+	`;
+
+
+	database.query(countryQuery, [country, country], (err, countryResults) => {
+
+		if(err) {
+
+			console.error("Insertion Error (country): ", err);
+			res.status(500).send("Query Error...");
+			return;
+		}
+		console.log('Country Insert ID:', countryResults.insertId);
+
+		const countryId = countryResults.insertId;
+		database.query(cityQuery, [city, countryId, city, countryId], (err, cityResults) => {
+
+			if(err) {
+
+				console.error("Insertion Error (city): ", err);
+				res.status(500).send("Query Error...");
+				return;
+			}
+			console.log('City Insert ID:', cityResults.insertId);
+
+			const cityId = cityResults.insertId;
+			database.query(addressQuery, [address, district, cityId, phone], (err, addressResults) => {
+
+				if(err) {
+					console.error("Insertion Error (address): ", err);
+					res.status(500).send("Query Error...");
+					return;
+				}
+
+				console.log('Address Insert ID:', addressResults.insertId);
+
+				const addressId = addressResults.insertId;
+				database.query(query, [storeId, firstName, lastName, email, addressId], (err, results) => {
+
+					if(err) {
+						console.error("Insertion Error (address): ", err);
+						res.status(500).send("Query Error...");
+						return;
+					}
+
+					console.log('Results:', results.insertId);
+
+					res.status(200).send('Customer added...');
+				});
+			});
+		});
+	});
 });
 
 app.listen(PORT, () => {
