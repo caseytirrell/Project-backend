@@ -38,7 +38,7 @@ database.connect((err) => {
 		if(results && results.length > 0) {
 
 			const indexName = results[0].Key_name;
-			
+
 			const dropQuery = `
 			ALTER TABLE address
 			DROP INDEX ${indexName}
@@ -469,6 +469,51 @@ app.post('/new-customer', (req, res) => {
 				});
 			});
 		});
+	});
+});
+
+app.delete('/delete-customer', (req, res) => {
+
+	const customer = req.body;
+	const query = ``;
+	const params = [];
+
+	if(customer.customer_id) {
+
+		query = `
+		DELETE FROM customer
+		WHERE customer_id = ?
+		`;
+		params = [customer.customer_id];
+	}
+	else if(customer.first_name && customer.last_name) {
+
+		query = `
+		DELETE FROM customer
+		WHERE first_name = ? AND last_name = ?
+		LIMIT 1
+		`;
+		params = [customer.first_name, customer.last_name];
+	}
+	else {
+
+		return res.status(400).send("Missing Info...");
+	}
+
+	database.query(query, params, (err, results) => {
+
+		if(err) {
+
+			console.error("Deleteion Error: ", err);
+			res.status(500).send("Query Error...");
+			return
+		}
+		if(results.affectedRows === 0) {
+
+			return res.status(404).send("Customer not found...");
+		}
+
+		return res.status(200).send('Deleted Customer...');
 	});
 });
 
