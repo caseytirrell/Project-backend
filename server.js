@@ -517,6 +517,75 @@ app.delete('/delete-customer', (req, res) => {
 	});
 });
 
+app.put('/update-customer/:customerId', (req, res) => {
+	console.log(req.params);
+	console.log(req.body);
+
+    const customerId = req.params.customerId;
+    const updatedData = req.body;
+
+    const countryQuery = `
+        INSERT INTO country (country)
+        VALUES (?)
+        ON DUPLICATE KEY UPDATE country_id=LAST_INSERT_ID(country_id), country=?
+    `;
+
+    const cityQuery = `
+        INSERT INTO city (city, country_id)
+        VALUES (?, ?)
+        ON DUPLICATE KEY UPDATE city_id=LAST_INSERT_ID(city_id), city=?, country_id=?
+    `;
+
+    const addressQuery = `
+        INSERT INTO address (address, district, city_id, phone)
+    	VALUES (?, ?, ?, ?)
+    	ON DUPLICATE KEY UPDATE address_id=LAST_INSERT_ID(address_id), address=VALUES(address), district=VALUES(district), city_id=VALUES(city_id), phone=VALUES(phone);
+    `;
+
+    const customerQuery = `
+        UPDATE customer 
+        SET first_name = ?, last_name = ?, email = ?, address_id = ?
+        WHERE customer_id = ?
+    `;
+
+    database.query(countryQuery, [updatedData.country, updatedData.country], (err, countryResults) => {
+        if (err) {
+            console.error("Country Error: ", err);
+            return res.status(500).send("Country Query Error");
+        }
+
+        const countryId = countryResults.insertId;
+        
+        database.query(cityQuery, [updatedData.city, countryId, updatedData.city, countryId], (err, cityResults) => {
+            if (err) {
+                console.error("City Error: ", err);
+                return res.status(500).send("City Query Error");
+            }
+
+            const cityId = cityResults.insertId;
+
+            database.query(addressQuery, [updatedData.address, updatedData.district, cityId, updatedData.phone, updatedData.address, updatedData.district, cityId, updatedData.phone], (err, addressResults) => {
+                if (err) {
+                    console.error("Address Error: ", err);
+                    return res.status(500).send("Address Query Error");
+                }
+
+                const addressId = addressResults.insertId;
+
+                database.query(customerQuery, [updatedData.firstName, updatedData.lastName, updatedData.email, addressId, customerId], (err, results) => {
+                    if (err) {
+                        console.error("Customer Update Error: ", err);
+                        return res.status(500).send("Customer Update Error");
+                    }
+
+                    return res.status(200).send("Customer Updated Successfully");
+                });
+            });
+        });
+    });
+});
+
+
 app.listen(PORT, () => {
 	console.log(`Server is running on ${PORT}`);
 });
