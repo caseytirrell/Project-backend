@@ -248,7 +248,7 @@ app.post('/movie-rentals', (req, res) => {
 
 	const query = `
 	INSERT INTO rental (rental_date, inventory_id, customer_id, return_date, staff_id)
-	VALUES (NOW(), ?, ?, NOW(), ?);
+	VALUES (NOW(), ?, ?, null, ?);
 	`;
 
 	database.query(inventoryQuery, [filmId], (err, results) => {
@@ -276,6 +276,31 @@ app.post('/movie-rentals', (req, res) => {
 
 });
 
+app.get('/current-rentals/:filmId', (req, res) => {
+
+	const filmId = req.params.filmId;
+
+	const query = `
+	SELECT customer.*
+	FROM customer
+	JOIN rental ON customer.customer_id = rental.customer_id
+	JOIN inventory ON rental.inventory_id = inventory.inventory_id
+	WHERE inventory.film_id = ? AND rental.return_date IS NULL
+	`;
+
+	database.query(query, [filmId], (err, results) => {
+
+		if(err) {
+
+			console.error("Fetching Error: ", err);
+			res.status(500).send("Query Error...");
+			return;
+		}
+		console.log(results);
+		res.json(results);
+	});
+});
+
 app.get('/all-customers', (req, res) => {
 
 	const query = `
@@ -293,6 +318,38 @@ app.get('/all-customers', (req, res) => {
 		}
 		res.json(results);
 	});
+});
+
+app.post('/return-movie', (req, res) => {
+
+	console.log("Received request body:", req.body)
+
+	const { customerId, filmId } = req.body;
+
+	if(!customerId || !filmId) {
+
+		res.status(400).json({error: 'Missing content from the Customer ID or Film ID...'});
+		return;
+	}
+
+	const query = `
+	UPDATE rental
+	SET return_date = NOW()
+	WHERE customer_id = ?
+	AND inventory_id IN (SELECT inventory_id FROM inventory WHERE film_id = ?)
+	AND return_date IS NULL;
+	`;
+
+	database.query(query, [customerId, filmId], (err, results) => {
+
+		if(err) {
+
+			console.error("Fetching Error: ", err);
+			res.status(500).send("Query Error...");
+			return;
+		}
+		res.json(results)
+	})
 });
 
 app.get('/search-customers', (req, res) => {
