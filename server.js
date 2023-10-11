@@ -3,6 +3,8 @@ const cors = require('cors');
 const app = exp();
 const PORT = 3001;
 const mySQL = require('mysql');
+const PDF = require('pdfkit');
+const fs = require('fs');
 
 app.use(cors());
 app.use(exp.json());
@@ -154,6 +156,46 @@ app.get('/actors-top-5/:actorId', (req, res) => {
 			return;
 		}
 		res.json(results);
+	});
+});
+
+app.get('/generate-customer-report', (req, res) => {
+
+	let fName = "customer_rental_report";
+	const name = 'Rental Report';
+
+	const query = `
+	SELECT customer.first_name, customer.last_name, COUNT(rental.rental_id) AS rental_count
+	FROM customer
+	JOIN rental on customer.customer_id = rental.customer_id
+	GROUP BY customer.customer_id
+	ORDER BY rental_count DESC
+	`;
+
+	database.query(query, (err, results) => {
+
+		if(err) {
+			console.error("Fetching Error: ", err);
+			res.status(500).send("Query Error...");
+			return;
+		}
+		
+		const PDFdoc = new PDF();
+
+		res.setHeader('Content-disposition', 'attachment; filename="' + fName + '"');
+		res.setHeader('Content-type', 'application/pdf');
+
+		PDFdoc.fontSize(20).text(name, 50, 50);
+		PDFdoc.moveDown();
+
+		results.forEach((customer) => {
+
+			PDFdoc.fontSize(15).text(`${customer.first_name} ${customer.last_name} ${customer.rental_count} rentals`);
+			PDFdoc.moveDown();
+		});
+
+		PDFdoc.pipe(res);
+		PDFdoc.end();
 	});
 });
 
