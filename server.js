@@ -490,7 +490,6 @@ app.get('/customer-rentals/:customerId', (req, res) => {
 
 app.post('/new-customer', (req, res) => {
 
-	console.log(req.body);
 	const { storeId, firstName, lastName, email, phone, address, city, district, country } = req.body;
 
 	if(!storeId || !firstName || !lastName || !email || !phone || !address || !city || !district || !country) {
@@ -562,6 +561,7 @@ app.post('/new-customer', (req, res) => {
 						return;
 					}
 
+
 					console.log('Results:', results.insertId);
 
 					res.status(200).send('Customer added...');
@@ -570,12 +570,11 @@ app.post('/new-customer', (req, res) => {
 		});
 	});
 });
-
 app.delete('/delete-customer', (req, res) => {
 
 	const customer = req.body;
-	const query = ``;
-	const params = [];
+	let query = ``;
+	let params = [];
 
 	if(customer.customer_id) {
 
@@ -617,8 +616,6 @@ app.delete('/delete-customer', (req, res) => {
 });
 
 app.put('/update-customer/:customerId', (req, res) => {
-	console.log(req.params);
-	console.log(req.body);
 
     const customerId = req.params.customerId;
     const updatedData = req.body;
