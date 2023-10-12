@@ -685,8 +685,8 @@ app.put('/update-customer/:customerId', (req, res) => {
 });
 
 
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
 	console.log(`Server is running on ${PORT}`);
 });
 
-//module.exports = { app, server, database };
+module.exports = { app, server, database };

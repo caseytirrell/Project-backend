@@ -32,6 +32,47 @@ describe('Get Endpoints', () => {
     		expect(movie).toHaveProperty('rating');
     	});
 	});
+
+	it('All Customers Endpoint', async () => {
+		const res = await request(server).get('/all-customers');
+		expect(res.statusCode).toEqual(200);
+		expect(Array.isArray(res.body)).toBe(true);
+		expect(res.body.length).toBeGreaterThan(0);
+
+	});
+
+	it('Search for Customer', async () => {
+		const res = await request(server).get('/search-customers');
+		expect(res.statusCode).toEqual(200);
+		expect(Array.isArray(res.body)).toBe(true);
+		expect(res.body.length).toBeGreaterThan(0);
+	});
+
+	it('Actors Top 5', async () => {
+		const actorID = 1;
+		
+		const res = await request(server).get(`/actors-top-5/${actorID}`);
+		expect(res.statusCode).toEqual(200);
+		expect(Array.isArray(res.body)).toBe(true);
+		expect(res.body.length).toEqual(5);
+	});
+
+	it('Customer Rentals', async () => {
+		const customerID = 1;
+
+		const res = await request(server).get(`/customer-rentals/${customerID}`);
+		expect(res.statusCode).toEqual(200);
+		expect(Array.isArray(res.body.movies)).toBe(true);
+		expect(res.body).toHaveProperty('movies');
+	});
+
+	it('Generate Customer Rental Report PDF', async () => {
+		const res = await request(server).get('/generate-customer-report');
+		expect(res.statusCode).toEqual(200);
+		expect(res.body.length).toBeGreaterThan(0);
+		expect(res.headers['content-type']).toBe('application/pdf');
+	});
+
 });
 
 afterAll(done => {
